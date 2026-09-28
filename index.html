@@ -178,6 +178,10 @@
   td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
   td.name { white-space: normal; min-width: 200px; max-width: 380px; }
   td.mono { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+  .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px;
+          font-weight: 600; white-space: nowrap; }
+  .pill.on  { color: var(--ok);   background: var(--ok-w);   border: 1px solid var(--ok); }
+  .pill.off { color: var(--ink-3); background: var(--sunken); border: 1px solid var(--line); }
 
   .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: .02em; }
   .pill.sent    { background: var(--ok-w);     color: var(--ok); }
@@ -283,6 +287,11 @@
     </section>
 
     <section>
+      <div class="sec-head"><h2>템플릿 배정 규칙</h2><span class="sec-note">위에서부터 검사해 처음 걸리는 규칙이 적용됩니다</span></div>
+      <div class="tbl-wrap" id="templates"></div>
+    </section>
+
+    <section>
       <div class="sec-head"><h2>미발송 사유</h2></div>
       <div class="tbl-wrap" id="skips"></div>
     </section>
@@ -335,6 +344,11 @@
       }
       return r.json();
     });
+  }
+
+  /** 없어도 되는 뷰. 실패하면 빈 배열로 넘긴다. */
+  function qOpt(view) {
+    return q(view).catch(function () { return []; });
   }
 
   function esc(s) {
@@ -435,17 +449,32 @@
     box.innerHTML = s;
   }
 
-  function renderForms(rows) {
+  function renderForms(rows, routes) {
     var el = document.getElementById("forms");
     if (!rows || !rows.length) { el.innerHTML = '<div class="empty">아직 리드가 없습니다.</div>'; return; }
+
+    // 폼 이름 → 어떤 템플릿으로 나가는지
+    var by = {};
+    (routes || []).forEach(function (r) { by[r["폼이름"]] = r; });
+    var hasRoutes = (routes || []).length > 0;
+
     var max = 0;
     rows.forEach(function (r) { max = Math.max(max, Number(r["유입"] || 0)); });
-    var h = "<table><thead><tr><th>리드폼(광고)</th><th style=\"text-align:right\">유입</th>" +
+    var h = "<table><thead><tr><th>리드폼(광고)</th>" +
+            (hasRoutes ? "<th>템플릿</th>" : "") +
+            "<th style=\"text-align:right\">유입</th>" +
             "<th>비중</th><th style=\"text-align:right\">발송</th><th style=\"text-align:right\">미발송</th>" +
             "<th style=\"text-align:right\">실패</th><th>최근</th></tr></thead><tbody>";
     rows.forEach(function (r) {
       var v = Number(r["유입"] || 0);
+      var rt = by[r["폼이름"]];
       h += "<tr><td class=\"name\">" + esc(r["폼이름"]) + "</td>" +
+           (hasRoutes
+             ? '<td>' + (rt
+                 ? '<span class="pill ' + (rt["처리"] === "미발송" ? "off" : "on") + '">' +
+                   esc(rt["템플릿"] || "—") + "</span>"
+                 : '<span class="pill off">규칙 없음</span>') + "</td>"
+             : "") +
            '<td class="num">' + n(v) + "</td>" +
            '<td><div class="bar-cell"><div class="track"><div class="fill" style="width:' +
              (max ? (v / max * 100).toFixed(1) : 0) + '%"></div></div></div></td>' +
@@ -453,6 +482,30 @@
            '<td class="num">' + n(r["미발송"]) + "</td>" +
            '<td class="num">' + n(r["실패"]) + "</td>" +
            '<td class="mono">' + esc(r["최근유입"]) + "</td></tr>";
+    });
+    el.innerHTML = h + "</tbody></table>";
+  }
+
+  function renderTemplates(rows) {
+    var el = document.getElementById("templates");
+    if (!rows || !rows.length) {
+      el.innerHTML = '<div class="empty">라우팅표가 아직 없습니다. sql/6-form-templates.sql 을 실행하면 나타납니다.</div>';
+      return;
+    }
+    var h = "<table><thead><tr><th style=\"text-align:right\">순서</th><th>이름</th>" +
+            "<th>폼 이름에 이 말이 들어가면</th><th>처리</th><th>템플릿 ID</th><th>사용</th><th>비고</th>" +
+            "</tr></thead><tbody>";
+    rows.forEach(function (r) {
+      var off = r["처리"] === "미발송";
+      h += "<tr>" +
+           '<td class="num">' + n(r["순서"]) + "</td>" +
+           '<td class="name">' + esc(r["이름"]) + "</td>" +
+           '<td class="mono">' + esc(r["폼이름조건"]) + "</td>" +
+           '<td><span class="pill ' + (off ? "off" : "on") + '">' + esc(r["처리"]) + "</span></td>" +
+           '<td class="mono">' + esc(r["템플릿ID"]) + "</td>" +
+           '<td><span class="pill ' + (r["사용"] === "중지" ? "off" : "on") + '">' +
+             esc(r["사용"]) + "</span></td>" +
+           "<td>" + esc(r["비고"]) + "</td></tr>";
     });
     el.innerHTML = h + "</tbody></table>";
   }
@@ -524,11 +577,14 @@
     err.hidden = true;
     Promise.all([
       q("dash_today"), q("dash_daily"), q("dash_by_form"),
-      q("dash_skip_reasons"), q("dash_recent"), q("dash_attention"), q("dash_state")
+      q("dash_skip_reasons"), q("dash_recent"), q("dash_attention"), q("dash_state"),
+      // 라우팅표는 아직 안 만들었을 수 있다. 없다고 현황판 전체가 죽으면 안 된다.
+      qOpt("dash_templates"), qOpt("dash_form_templates")
     ]).then(function (r) {
       renderTiles(r[0] && r[0][0]);
       drawChart(r[1]);
-      renderForms(r[2]);
+      renderForms(r[2], r[8]);
+      renderTemplates(r[7]);
       renderSkips(r[3]);
       renderRecent(r[4]);
       renderAttention(r[5]);
