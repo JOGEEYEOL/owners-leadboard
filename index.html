@@ -1,0 +1,552 @@
+<title>리드 알림톡 현황판</title>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --ground:   #f6f5f3;
+    --surface:  #ffffff;
+    --sunken:   #eeece8;
+    --line:     #ddd9d2;
+    --line-2:   #ebe8e3;
+    --ink:      #1c1a17;
+    --ink-2:    #4a463f;
+    --ink-3:    #857f74;
+    --accent:   #0d6e5f;
+    --accent-w: #0d6e5f18;
+    --ok:       #2f7d32;
+    --ok-w:     #2f7d3218;
+    --warn:     #b45309;
+    --warn-w:   #b4530918;
+    --bad:      #b42318;
+    --bad-w:    #b4231818;
+    --radius:   10px;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: "IBM Plex Sans KR", system-ui, -apple-system, "Malgun Gothic", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:   #14161a;
+      --surface:  #1b1e23;
+      --sunken:   #23272d;
+      --line:     #333840;
+      --line-2:   #272b31;
+      --ink:      #e8e6e1;
+      --ink-2:    #b6b2aa;
+      --ink-3:    #857f74;
+      --accent:   #4fd1b9;
+      --accent-w: #4fd1b922;
+      --ok:       #62c264;
+      --ok-w:     #62c26422;
+      --warn:     #e0a33c;
+      --warn-w:   #e0a33c22;
+      --bad:      #e8695c;
+      --bad-w:    #e8695c22;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:   #14161a;
+    --surface:  #1b1e23;
+    --sunken:   #23272d;
+    --line:     #333840;
+    --line-2:   #272b31;
+    --ink:      #e8e6e1;
+    --ink-2:    #b6b2aa;
+    --ink-3:    #857f74;
+    --accent:   #4fd1b9;
+    --accent-w: #4fd1b922;
+    --ok:       #62c264;
+    --ok-w:     #62c26422;
+    --warn:     #e0a33c;
+    --warn-w:   #e0a33c22;
+    --bad:      #e8695c;
+    --bad-w:    #e8695c22;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px; padding-block: 0 56px; }
+
+  /* ── 헤더 ─────────────────────────────── */
+  header.bar {
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+    background: color-mix(in srgb, var(--ground) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line-2);
+  }
+  .bar-in {
+    max-width: 1180px; margin: 0 auto; padding: 14px 16px;
+    display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+  }
+  h1 { font-size: 17px; font-weight: 700; margin: 0; letter-spacing: -.01em; }
+  .bar-sub { font-size: 12px; color: var(--ink-3); font-family: var(--mono); display: inline-flex; align-items: center; gap: 6px; }
+  .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex: none; animation: blip 2.4s ease-in-out infinite; }
+  @keyframes blip { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+  .bar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+  button {
+    font-family: var(--sans); font-size: 13px; font-weight: 500;
+    color: var(--ink); background: var(--surface);
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 6px 12px; cursor: pointer;
+  }
+  button:hover { border-color: var(--ink-3); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  :root[data-theme="dark"] button.primary,
+  :root:not([data-theme="light"]) button.primary { color: #10231f; }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) button.primary { color: #fff; }
+  }
+
+  /* ── 배너 ─────────────────────────────── */
+  .banner {
+    display: flex; gap: 10px; align-items: flex-start;
+    border-radius: var(--radius); padding: 12px 14px; margin-top: 18px;
+    font-size: 13px; line-height: 1.5;
+  }
+  .banner.warn { background: var(--warn-w); border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); color: var(--ink); }
+  .banner.bad  { background: var(--bad-w);  border: 1px solid color-mix(in srgb, var(--bad) 35%, transparent);  color: var(--ink); }
+  .banner b { font-weight: 600; }
+  .banner .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; flex: none; }
+  .banner.warn .dot { background: var(--warn); }
+  .banner.bad  .dot { background: var(--bad); }
+
+  /* ── 섹션 ─────────────────────────────── */
+  section { margin-top: 30px; }
+  .sec-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+  h2 { font-size: 12px; font-weight: 600; margin: 0; text-transform: uppercase; letter-spacing: .09em; color: var(--ink-3); }
+  .sec-note { font-size: 12px; color: var(--ink-3); }
+
+  /* ── 타일 ─────────────────────────────── */
+  .tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  @media (max-width: 860px) { .tiles { grid-template-columns: repeat(2, 1fr); } }
+  .tile {
+    background: var(--surface); border: 1px solid var(--line-2);
+    border-radius: var(--radius); padding: 14px 15px;
+  }
+  .tile .k { font-size: 11px; color: var(--ink-3); letter-spacing: .04em; }
+  .tile .v {
+    font-family: var(--mono); font-variant-numeric: tabular-nums;
+    font-size: 27px; font-weight: 600; line-height: 1.15; margin-top: 5px;
+  }
+  .tile.hi .v { color: var(--accent); }
+  .tile.ok .v { color: var(--ok); }
+  .tile.wn .v { color: var(--warn); }
+  .tile.bd .v { color: var(--bad); }
+
+  /* ── 주의 칩 ──────────────────────────── */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 999px; padding: 5px 12px 5px 10px; font-size: 13px;
+  }
+  .chip .n { font-family: var(--mono); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .chip.wn { border-color: color-mix(in srgb, var(--warn) 40%, transparent); background: var(--warn-w); }
+  .chip.wn .n { color: var(--warn); }
+  .chip.bd { border-color: color-mix(in srgb, var(--bad) 40%, transparent); background: var(--bad-w); }
+  .chip.bd .n { color: var(--bad); }
+  .chip.calm { color: var(--ink-3); }
+
+  /* ── 차트 ─────────────────────────────── */
+  .chart-box { background: var(--surface); border: 1px solid var(--line-2); border-radius: var(--radius); padding: 16px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--ink-2); margin-bottom: 10px; }
+  .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+
+  /* ── 표 ───────────────────────────────── */
+  .tbl-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line-2); border-radius: var(--radius); }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--line-2); white-space: nowrap; }
+  th { font-size: 11px; font-weight: 600; color: var(--ink-3); letter-spacing: .05em; text-transform: uppercase; background: var(--sunken); }
+  tr:last-child td { border-bottom: none; }
+  td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
+  td.name { white-space: normal; min-width: 200px; max-width: 380px; }
+  td.mono { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+
+  .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: .02em; }
+  .pill.sent    { background: var(--ok-w);     color: var(--ok); }
+  .pill.skipped { background: var(--sunken);   color: var(--ink-2); }
+  .pill.failed  { background: var(--bad-w);    color: var(--bad); }
+  .pill.pending { background: var(--warn-w);   color: var(--warn); }
+
+  .bar-cell { display: flex; align-items: center; gap: 8px; }
+  .bar-cell .track { flex: 1; min-width: 60px; height: 6px; background: var(--sunken); border-radius: 3px; overflow: hidden; }
+  .bar-cell .fill { height: 100%; background: var(--accent); border-radius: 3px; }
+
+  /* ── 설정 / 상태 ──────────────────────── */
+  .panel {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 22px; margin-top: 26px; max-width: 640px;
+  }
+  .panel h3 { margin: 0 0 8px; font-size: 16px; font-weight: 600; }
+  .panel p { margin: 0 0 14px; color: var(--ink-2); font-size: 13px; }
+  .panel ol { margin: 0 0 16px; padding-left: 20px; color: var(--ink-2); font-size: 13px; }
+  .panel li { margin-bottom: 5px; }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-3); margin-bottom: 6px; letter-spacing: .04em; }
+  input[type="text"] {
+    width: 100%; font-family: var(--mono); font-size: 13px;
+    padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--ground); color: var(--ink);
+  }
+  input[type="text"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+  .panel .row { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .hint { font-size: 12px; color: var(--ink-3); margin-top: 10px; }
+  code { font-family: var(--mono); font-size: 12px; background: var(--sunken); padding: 1px 5px; border-radius: 4px; }
+
+  .empty { padding: 26px 16px; text-align: center; color: var(--ink-3); font-size: 13px; }
+  .err { font-family: var(--mono); font-size: 12px; color: var(--bad); word-break: break-all; margin-top: 8px; }
+
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<header class="bar">
+  <div class="bar-in">
+    <h1>리드 알림톡 현황판</h1>
+    <span class="bar-sub" id="stamp">—</span>
+    <div class="bar-right">
+      <button id="theme" title="밝게 / 어둡게">◐</button>
+      <button id="reload" class="primary">새로고침</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- 설정 -->
+  <div class="panel" id="setup" hidden>
+    <h3>현황판 연결</h3>
+    <p>Supabase 공개키(publishable key)를 한 번만 입력하면 됩니다. 이 브라우저에만 저장되고 다른 곳으로 전송되지 않습니다.</p>
+    <ol>
+      <li>Supabase → Project Settings → <b>API Keys</b></li>
+      <li><b>Publishable key</b> 복사 (<code>sb_publishable_…</code> 로 시작)</li>
+      <li>아래에 붙여넣기</li>
+    </ol>
+    <label for="keyin">Publishable key</label>
+    <input type="text" id="keyin" placeholder="sb_publishable_..." autocomplete="off" spellcheck="false">
+    <div class="row">
+      <button class="primary" id="save">연결</button>
+    </div>
+    <p class="hint">
+      비밀키(<code>sb_secret_…</code>)가 아니라 <b>공개키</b>입니다. 이 현황판은 개인정보가 없는 집계 자료만 읽습니다 —
+      이름과 전화번호는 어떤 화면에도 나오지 않습니다.
+    </p>
+    <div class="err" id="setup-err" hidden></div>
+  </div>
+
+  <!-- 본문 -->
+  <div id="main" hidden>
+    <div id="banners"></div>
+
+    <section>
+      <div class="sec-head"><h2>오늘</h2><span class="sec-note" id="today-note">한국시간 자정 기준</span></div>
+      <div class="tiles" id="tiles"></div>
+    </section>
+
+    <section>
+      <div class="sec-head"><h2>손봐야 할 것</h2></div>
+      <div class="chips" id="attention"></div>
+    </section>
+
+    <section>
+      <div class="sec-head"><h2>최근 30일 추이</h2><span class="sec-note">막대 = 하루 유입</span></div>
+      <div class="chart-box">
+        <div class="legend">
+          <span><i style="background:var(--ok)"></i>발송</span>
+          <span><i style="background:var(--ink-3)"></i>미발송</span>
+          <span><i style="background:var(--bad)"></i>실패</span>
+        </div>
+        <div id="chart"></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="sec-head"><h2>광고(리드폼)별 현황</h2><span class="sec-note">폼 이름으로 발송 여부가 갈립니다</span></div>
+      <div class="tbl-wrap" id="forms"></div>
+    </section>
+
+    <section>
+      <div class="sec-head"><h2>미발송 사유</h2></div>
+      <div class="tbl-wrap" id="skips"></div>
+    </section>
+
+    <section>
+      <div class="sec-head"><h2>최근 리드</h2><span class="sec-note">개인정보 제외 · 최대 50건</span></div>
+      <div class="tbl-wrap" id="recent"></div>
+    </section>
+
+    <div class="err" id="main-err" hidden></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var SUPA = "https://kotnzenpngqybhezqnfe.supabase.co";
+  var LS_KEY = "leadboard.pubkey";
+  var LS_THEME = "leadboard.theme";
+  var key = "";
+
+  function ls(fn, dflt) { try { return fn(); } catch (e) { return dflt; } }
+
+  // ── 테마 ────────────────────────────────
+  var saved = ls(function () { return localStorage.getItem(LS_THEME); }, null);
+  if (saved === "dark" || saved === "light") document.documentElement.setAttribute("data-theme", saved);
+  document.getElementById("theme").addEventListener("click", function () {
+    var cur = document.documentElement.getAttribute("data-theme");
+    var next = cur === "dark" ? "light" : cur === "light" ? "" : "dark";
+    if (next) document.documentElement.setAttribute("data-theme", next);
+    else document.documentElement.removeAttribute("data-theme");
+    ls(function () { localStorage.setItem(LS_THEME, next); });
+    if (lastDaily) drawChart(lastDaily);
+  });
+
+  // ── 조회 ────────────────────────────────
+  function q(view, extra) {
+    var url = SUPA + "/rest/v1/" + view + "?select=*" + (extra || "");
+    return fetch(url, {
+      headers: { apikey: key, Authorization: "Bearer " + key, Accept: "application/json" }
+    }).then(function (r) {
+      if (!r.ok) {
+        return r.text().then(function (t) {
+          var msg = r.status + " " + view + " — " + t.slice(0, 200);
+          if (r.status === 401 || r.status === 403) msg = "공개키가 맞지 않습니다 (" + r.status + ")";
+          if (r.status === 404) msg = "뷰 " + view + " 가 없습니다. sql/4-dashboard-views.sql 을 먼저 실행하세요.";
+          throw new Error(msg);
+        });
+      }
+      return r.json();
+    });
+  }
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+  function n(v) { return Number(v || 0).toLocaleString("ko-KR"); }
+
+  // ── 렌더 ────────────────────────────────
+  function renderTiles(t) {
+    var d = t || {};
+    var defs = [
+      ["유입", d["유입"], "hi"],
+      ["발송", d["발송"], "ok"],
+      ["미발송", d["미발송"], ""],
+      ["실패", d["실패"], Number(d["실패"] || 0) > 0 ? "bd" : ""],
+      ["대기", d["대기"], Number(d["대기"] || 0) > 0 ? "wn" : ""]
+    ];
+    document.getElementById("tiles").innerHTML = defs.map(function (x) {
+      return '<div class="tile ' + x[2] + '"><div class="k">' + x[0] + '</div><div class="v">' + n(x[1]) + "</div></div>";
+    }).join("");
+  }
+
+  function renderAttention(rows) {
+    var el = document.getElementById("attention");
+    var live = (rows || []).filter(function (r) { return Number(r["건수"]) > 0; });
+    if (!live.length) {
+      el.innerHTML = '<span class="chip calm">지금 손볼 것 없음</span>';
+      return;
+    }
+    el.innerHTML = live.map(function (r) {
+      var bad = r["항목"] === "발송 실패" || r["항목"] === "처리 막힘";
+      return '<span class="chip ' + (bad ? "bd" : "wn") + '">' + esc(r["항목"]) +
+             ' <span class="n">' + n(r["건수"]) + "</span></span>";
+    }).join("");
+  }
+
+  var lastDaily = null;
+  function drawChart(rows) {
+    lastDaily = rows;
+    var box = document.getElementById("chart");
+    var data = (rows || []).slice().reverse();
+    if (!data.length) { box.innerHTML = '<div class="empty">아직 데이터가 없습니다.</div>'; return; }
+
+    var W = 940, H = 190, padL = 34, padR = 10, padT = 12, padB = 26;
+    var iw = W - padL - padR, ih = H - padT - padB;
+    var max = 0;
+    data.forEach(function (d) { max = Math.max(max, Number(d["유입"] || 0)); });
+    if (max < 4) max = 4;
+    var step = iw / data.length, bw = Math.max(3, Math.min(20, step * 0.62));
+
+    var cs = getComputedStyle(document.documentElement);
+    var cOk = cs.getPropertyValue("--ok").trim() || "#2f7d32";
+    var cSk = cs.getPropertyValue("--ink-3").trim() || "#857f74";
+    var cBd = cs.getPropertyValue("--bad").trim() || "#b42318";
+    var cLn = cs.getPropertyValue("--line-2").trim() || "#ebe8e3";
+    var cTx = cs.getPropertyValue("--ink-3").trim() || "#857f74";
+
+    var s = '<svg viewBox="0 0 ' + W + " " + H + '" width="100%" height="' + H +
+            '" role="img" aria-label="최근 30일 일별 리드 유입" style="display:block">';
+
+    // 눈금 3줄 — 라벨이 가리키는 값이 실제로 차트에 존재하도록 max 기준으로 나눈다
+    [0, 0.5, 1].forEach(function (f) {
+      var v = Math.round(max * f);
+      var y = padT + ih - ih * f;
+      s += '<line x1="' + padL + '" y1="' + y + '" x2="' + (W - padR) + '" y2="' + y +
+           '" stroke="' + cLn + '" stroke-width="1" fill="none"/>';
+      s += '<text x="' + (padL - 7) + '" y="' + (y + 4) + '" text-anchor="end" font-size="10" fill="' +
+           cTx + '" font-family="IBM Plex Mono, monospace">' + v + "</text>";
+    });
+
+    data.forEach(function (d, i) {
+      var total = Number(d["유입"] || 0);
+      if (!total) return;
+      var sent = Number(d["발송"] || 0), skip = Number(d["미발송"] || 0), fail = Number(d["실패"] || 0);
+      var other = Math.max(0, total - sent - skip - fail);
+      var x = padL + i * step + (step - bw) / 2;
+      var y = padT + ih;
+      [[fail, cBd], [skip, cSk], [sent, cOk], [other, cLn]].forEach(function (seg) {
+        if (!seg[0]) return;
+        var h = (seg[0] / max) * ih;
+        y -= h;
+        s += '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw.toFixed(1) +
+             '" height="' + h.toFixed(1) + '" fill="' + seg[1] + '" rx="1.5"/>';
+      });
+    });
+
+    // 처음 / 마지막 날짜만 표기
+    function dlab(d) { return String(d["날짜"] || "").slice(5); }
+    s += '<text x="' + padL + '" y="' + (H - 7) + '" font-size="10" fill="' + cTx +
+         '" font-family="IBM Plex Mono, monospace">' + esc(dlab(data[0])) + "</text>";
+    if (data.length > 1) {
+      s += '<text x="' + (W - padR) + '" y="' + (H - 7) + '" text-anchor="end" font-size="10" fill="' +
+           cTx + '" font-family="IBM Plex Mono, monospace">' + esc(dlab(data[data.length - 1])) + "</text>";
+    }
+    s += "</svg>";
+    box.innerHTML = s;
+  }
+
+  function renderForms(rows) {
+    var el = document.getElementById("forms");
+    if (!rows || !rows.length) { el.innerHTML = '<div class="empty">아직 리드가 없습니다.</div>'; return; }
+    var max = 0;
+    rows.forEach(function (r) { max = Math.max(max, Number(r["유입"] || 0)); });
+    var h = "<table><thead><tr><th>리드폼(광고)</th><th style=\"text-align:right\">유입</th>" +
+            "<th>비중</th><th style=\"text-align:right\">발송</th><th style=\"text-align:right\">미발송</th>" +
+            "<th style=\"text-align:right\">실패</th><th>최근</th></tr></thead><tbody>";
+    rows.forEach(function (r) {
+      var v = Number(r["유입"] || 0);
+      h += "<tr><td class=\"name\">" + esc(r["폼이름"]) + "</td>" +
+           '<td class="num">' + n(v) + "</td>" +
+           '<td><div class="bar-cell"><div class="track"><div class="fill" style="width:' +
+             (max ? (v / max * 100).toFixed(1) : 0) + '%"></div></div></div></td>' +
+           '<td class="num">' + n(r["발송"]) + "</td>" +
+           '<td class="num">' + n(r["미발송"]) + "</td>" +
+           '<td class="num">' + n(r["실패"]) + "</td>" +
+           '<td class="mono">' + esc(r["최근유입"]) + "</td></tr>";
+    });
+    el.innerHTML = h + "</tbody></table>";
+  }
+
+  function renderSkips(rows) {
+    var el = document.getElementById("skips");
+    if (!rows || !rows.length) { el.innerHTML = '<div class="empty">미발송 건이 없습니다.</div>'; return; }
+    var h = "<table><thead><tr><th>사유</th><th style=\"text-align:right\">건수</th></tr></thead><tbody>";
+    rows.forEach(function (r) {
+      h += "<tr><td class=\"name\">" + esc(r["사유"]) + '</td><td class="num">' + n(r["건수"]) + "</td></tr>";
+    });
+    el.innerHTML = h + "</tbody></table>";
+  }
+
+  function renderRecent(rows) {
+    var el = document.getElementById("recent");
+    if (!rows || !rows.length) { el.innerHTML = '<div class="empty">아직 리드가 없습니다.</div>'; return; }
+    var h = "<table><thead><tr><th>시각</th><th>접수번호</th><th>리드폼</th><th>상태</th>" +
+            "<th>번호</th><th>사유</th></tr></thead><tbody>";
+    rows.forEach(function (r) {
+      var st = r["상태"] || "pending";
+      var ko = { sent: "발송", skipped: "미발송", failed: "실패", pending: "대기" }[st] || st;
+      h += '<tr><td class="mono">' + esc(r["시각"]) + "</td>" +
+           '<td class="mono">' + esc(r["접수번호"]) + "</td>" +
+           '<td class="name">' + esc(r["폼이름"]) + "</td>" +
+           '<td><span class="pill ' + esc(st) + '">' + esc(ko) + "</span></td>" +
+           "<td>" + (r["번호유효"] === false ? '<span class="pill failed">무효</span>' : "정상") + "</td>" +
+           '<td class="name">' + esc(r["사유"]) + "</td></tr>";
+    });
+    el.innerHTML = h + "</tbody></table>";
+  }
+
+  function renderBanners(skips, attn) {
+    var out = "";
+    var dry = (skips || []).filter(function (r) { return String(r["사유"]).indexOf("DRY_RUN") >= 0; })[0];
+    if (dry) {
+      out += '<div class="banner warn"><span class="dot"></span><div><b>테스트 모드</b> — 실제 알림톡이 나가지 않습니다. ' +
+             "지금까지 " + n(dry["건수"]) + "건이 발송 직전에서 멈췄습니다. " +
+             "Supabase 시크릿의 <code>DRY_RUN</code> 을 <code>false</code> 로 바꾸면 실제 발송이 시작됩니다.</div></div>";
+    }
+    var fail = (attn || []).filter(function (r) { return r["항목"] === "발송 실패" && Number(r["건수"]) > 0; })[0];
+    if (fail) {
+      out += '<div class="banner bad"><span class="dot"></span><div><b>발송 실패 ' + n(fail["건수"]) +
+             "건</b> — 재시도 한도를 넘긴 건입니다. 아래 최근 리드에서 사유를 확인하세요.</div></div>";
+    }
+    document.getElementById("banners").innerHTML = out;
+  }
+
+  // ── 적재 ────────────────────────────────
+  function load() {
+    var err = document.getElementById("main-err");
+    err.hidden = true;
+    Promise.all([
+      q("dash_today"), q("dash_daily"), q("dash_by_form"),
+      q("dash_skip_reasons"), q("dash_recent"), q("dash_attention")
+    ]).then(function (r) {
+      renderTiles(r[0] && r[0][0]);
+      drawChart(r[1]);
+      renderForms(r[2]);
+      renderSkips(r[3]);
+      renderRecent(r[4]);
+      renderAttention(r[5]);
+      renderBanners(r[3], r[5]);
+      var d = new Date();
+      document.getElementById("stamp").innerHTML =
+        '<span class="pulse"></span>' +
+        String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0") +
+        " 갱신 · 60초마다 자동";
+    }).catch(function (e) {
+      err.textContent = e.message;
+      err.hidden = false;
+      if (/공개키/.test(e.message)) showSetup(e.message);
+    });
+  }
+
+  function showSetup(msg) {
+    document.getElementById("setup").hidden = false;
+    document.getElementById("main").hidden = true;
+    var se = document.getElementById("setup-err");
+    if (msg) { se.textContent = msg; se.hidden = false; } else { se.hidden = true; }
+  }
+
+  function start(k) {
+    key = k;
+    document.getElementById("setup").hidden = true;
+    document.getElementById("main").hidden = false;
+    load();
+  }
+
+  document.getElementById("save").addEventListener("click", function () {
+    var v = document.getElementById("keyin").value.trim();
+    if (!v) { showSetup("키를 입력하세요."); return; }
+    ls(function () { localStorage.setItem(LS_KEY, v); });
+    start(v);
+  });
+  document.getElementById("keyin").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") document.getElementById("save").click();
+  });
+  document.getElementById("reload").addEventListener("click", load);
+
+  var stored = ls(function () { return localStorage.getItem(LS_KEY); }, null);
+  if (stored) start(stored); else showSetup(null);
+
+  setInterval(function () { if (key) load(); }, 60000);
+})();
+</script>
