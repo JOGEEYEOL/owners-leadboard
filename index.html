@@ -165,6 +165,32 @@
   .chip.calm { color: var(--ink-3); }
 
   /* ── 차트 ─────────────────────────────── */
+  /* display 를 가진 요소에도 hidden 이 먹도록 — .seg-row 가 flex 라 필요하다 */
+  [hidden] { display: none !important; }
+
+  /* 기간 전환 — 눌러도 다시 조회하지 않는다. 받아둔 자료에서 골라 그린다. */
+  .seg-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 22px; }
+  .seg {
+    display: inline-flex; background: var(--sunken); border: 1px solid var(--line);
+    border-radius: 9px; padding: 3px; gap: 2px;
+  }
+  .seg button {
+    appearance: none; border: 0; background: none; cursor: pointer;
+    font: inherit; font-size: 13px; font-weight: 600; color: var(--ink-3);
+    padding: 6px 14px; border-radius: 6px; white-space: nowrap;
+    transition: background .12s, color .12s;
+  }
+  .seg button:hover { color: var(--ink); }
+  .seg button[aria-selected="true"] {
+    background: var(--surface); color: var(--ink);
+    box-shadow: 0 1px 2px rgba(0,0,0,.08);
+  }
+  .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  @media (max-width: 480px) {
+    .seg { width: 100%; }
+    .seg button { flex: 1; padding: 7px 4px; font-size: 12px; }
+  }
+
   .chart-box { background: var(--surface); border: 1px solid var(--line-2); border-radius: var(--radius); padding: 16px; }
   .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--ink-2); margin-bottom: 10px; }
   .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
@@ -259,8 +285,18 @@
   <div id="main" hidden>
     <div id="banners"></div>
 
+    <div class="seg-row" id="seg-row-wrap" hidden>
+      <div class="seg" id="seg" role="tablist" aria-label="기간 선택">
+        <button type="button" role="tab" data-p="오늘">오늘</button>
+        <button type="button" role="tab" data-p="이번 주">이번 주</button>
+        <button type="button" role="tab" data-p="이번 달">이번 달</button>
+        <button type="button" role="tab" data-p="전체">전체</button>
+      </div>
+      <span class="sec-note" id="seg-note">한국시간 기준 · 주는 월요일 시작</span>
+    </div>
+
     <section>
-      <div class="sec-head"><h2>오늘</h2><span class="sec-note" id="today-note">한국시간 자정 기준</span></div>
+      <div class="sec-head"><h2 id="sum-title">오늘</h2><span class="sec-note" id="today-note">한국시간 자정 기준</span></div>
       <div class="tiles" id="tiles"></div>
     </section>
 
@@ -270,7 +306,7 @@
     </section>
 
     <section>
-      <div class="sec-head"><h2>최근 30일 추이</h2><span class="sec-note">막대 = 하루 유입</span></div>
+      <div class="sec-head"><h2 id="trend-title">최근 30일 추이</h2><span class="sec-note" id="trend-note">막대 = 하루 유입</span></div>
       <div class="chart-box">
         <div class="legend">
           <span><i style="background:var(--ok)"></i>발송</span>
@@ -282,7 +318,7 @@
     </section>
 
     <section>
-      <div class="sec-head"><h2>광고(리드폼)별 현황</h2><span class="sec-note">폼 이름으로 발송 여부가 갈립니다</span></div>
+      <div class="sec-head"><h2>광고(리드폼)별 현황</h2><span class="sec-note" id="forms-note">폼 이름으로 발송 여부가 갈립니다</span></div>
       <div class="tbl-wrap" id="forms"></div>
     </section>
 
@@ -312,6 +348,28 @@
   var SUPA = "https://kotnzenpngqybhezqnfe.supabase.co";
   var LS_KEY = "leadboard.pubkey";
   var LS_THEME = "leadboard.theme";
+  var LS_PERIOD = "leadboard.period";
+
+  // ── 기간 ────────────────────────────────
+  // 현재 고른 기간과, 그 기간이 각 화면에서 뜻하는 것.
+  //  trend  : dash_trend 의 구분 값 ('전체' 는 가장 넓은 월별로 본다)
+  //  title  : 추이 섹션 제목
+  //  note   : 추이 섹션 부제
+  var PERIODS = {
+    "오늘":   { trend: "일", title: "최근 30일 추이",   note: "막대 = 하루 유입",
+                sum: "한국시간 자정 기준" },
+    "이번 주": { trend: "주", title: "최근 12주 추이",   note: "막대 = 한 주 유입 · 라벨은 그 주 월요일",
+                sum: "월요일 0시부터" },
+    "이번 달": { trend: "월", title: "최근 12개월 추이", note: "막대 = 한 달 유입",
+                sum: "1일 0시부터" },
+    "전체":   { trend: "월", title: "최근 12개월 추이", note: "막대 = 한 달 유입",
+                sum: "누적 전체" }
+  };
+  var period = ls(function () { return localStorage.getItem(LS_PERIOD); }, null);
+  if (!PERIODS[period]) period = "오늘";
+
+  // 조회해둔 원본. 기간 버튼은 여기서 골라 그리기만 한다(재조회 없음).
+  var DATA = { summary: [], trend: [], forms: [], routes: [], legacy: null };
   var key = "";
 
   function ls(fn, dflt) { try { return fn(); } catch (e) { return dflt; } }
@@ -388,6 +446,7 @@
   }
 
   var lastDaily = null;
+  var chartLabel = "최근 30일 일별 리드 유입";
   function drawChart(rows) {
     lastDaily = rows;
     var box = document.getElementById("chart");
@@ -409,7 +468,7 @@
     var cTx = cs.getPropertyValue("--ink-3").trim() || "#857f74";
 
     var s = '<svg viewBox="0 0 ' + W + " " + H + '" width="100%" height="' + H +
-            '" role="img" aria-label="최근 30일 일별 리드 유입" style="display:block">';
+            '" role="img" aria-label="' + esc(chartLabel) + '" style="display:block">';
 
     // 눈금 3줄 — 라벨이 가리키는 값이 실제로 차트에 존재하도록 max 기준으로 나눈다
     [0, 0.5, 1].forEach(function (f) {
@@ -437,8 +496,12 @@
       });
     });
 
-    // 처음 / 마지막 날짜만 표기
-    function dlab(d) { return String(d["날짜"] || "").slice(5); }
+    // 처음 / 마지막 칸만 표기
+    // 새 뷰는 '기간', 예전 dash_daily 는 'YYYY-MM-DD' 형태의 '날짜'를 준다.
+    function dlab(d) {
+      if (d["기간"] != null) return String(d["기간"]);
+      return String(d["날짜"] || "").slice(5);
+    }
     s += '<text x="' + padL + '" y="' + (H - 7) + '" font-size="10" fill="' + cTx +
          '" font-family="IBM Plex Mono, monospace">' + esc(dlab(data[0])) + "</text>";
     if (data.length > 1) {
@@ -502,7 +565,9 @@
            '<td class="name">' + esc(r["이름"]) + "</td>" +
            '<td class="mono">' + esc(r["폼이름조건"]) + "</td>" +
            '<td><span class="pill ' + (off ? "off" : "on") + '">' + esc(r["처리"]) + "</span></td>" +
-           '<td class="mono">' + esc(r["템플릿ID"]) + "</td>" +
+           // 뷰에서 별칭을 템플릿ID 로 줬지만 Postgres 가 따옴표 없는 식별자를
+           // 소문자로 내리기 때문에 실제 키는 "템플릿id" 다.
+           '<td class="mono">' + esc(r["템플릿id"]) + "</td>" +
            '<td><span class="pill ' + (r["사용"] === "중지" ? "off" : "on") + '">' +
              esc(r["사용"]) + "</span></td>" +
            "<td>" + esc(r["비고"]) + "</td></tr>";
@@ -571,6 +636,67 @@
     document.getElementById("banners").innerHTML = out;
   }
 
+  // ── 기간 전환 ───────────────────────────
+  // 조회는 하지 않는다. load() 가 담아둔 DATA 에서 골라 다시 그릴 뿐이다.
+  function applyPeriod() {
+    var cfg = PERIODS[period] || PERIODS["오늘"];
+
+    document.querySelectorAll("#seg button").forEach(function (b) {
+      b.setAttribute("aria-selected", b.dataset.p === period ? "true" : "false");
+    });
+
+    // 요약 타일
+    if (DATA.summary.length) {
+      var row = DATA.summary.filter(function (r) { return r["구분"] === period; })[0];
+      renderTiles(row);
+      document.getElementById("sum-title").textContent = period;
+      document.getElementById("today-note").textContent = cfg.sum;
+    } else if (DATA.legacy) {
+      // 기간 뷰를 아직 안 만든 상태 — 예전처럼 오늘만 보여준다
+      renderTiles(DATA.legacy.today);
+      document.getElementById("sum-title").textContent = "오늘";
+      document.getElementById("today-note").textContent = "한국시간 자정 기준";
+    }
+
+    // 추이
+    if (DATA.trend.length) {
+      document.getElementById("trend-title").textContent = cfg.title;
+      document.getElementById("trend-note").textContent = cfg.note;
+      chartLabel = cfg.title;
+      var t = DATA.trend
+        .filter(function (r) { return r["구분"] === cfg.trend; })
+        .sort(function (a, b) { return a["정렬"] < b["정렬"] ? 1 : -1; }); // drawChart 가 뒤집어 그린다
+      drawChart(t);
+    } else if (DATA.legacy) {
+      // 기간 뷰가 없으면 예전 일별 자료뿐이다 — 제목이 자료와 어긋나면 안 된다
+      document.getElementById("trend-title").textContent = "최근 30일 추이";
+      document.getElementById("trend-note").textContent = "막대 = 하루 유입";
+      chartLabel = "최근 30일 일별 리드 유입";
+      drawChart(DATA.legacy.daily);
+    }
+
+    // 광고별
+    var note = document.getElementById("forms-note");
+    if (DATA.forms.length) {
+      var f = DATA.forms
+        .filter(function (r) { return r["구분"] === period; })
+        .sort(function (a, b) { return Number(b["유입"] || 0) - Number(a["유입"] || 0); });
+      renderForms(f, DATA.routes);
+      note.textContent = period + " 기준 · 폼 이름으로 발송 여부가 갈립니다";
+    } else if (DATA.legacy) {
+      renderForms(DATA.legacy.byForm, DATA.routes);
+      note.textContent = "전체 누적 · 폼 이름으로 발송 여부가 갈립니다";
+    }
+  }
+
+  document.getElementById("seg").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-p]");
+    if (!b || b.dataset.p === period) return;
+    period = b.dataset.p;
+    ls(function () { localStorage.setItem(LS_PERIOD, period); });
+    applyPeriod();
+  });
+
   // ── 적재 ────────────────────────────────
   function load() {
     var err = document.getElementById("main-err");
@@ -578,12 +704,20 @@
     Promise.all([
       q("dash_today"), q("dash_daily"), q("dash_by_form"),
       q("dash_skip_reasons"), q("dash_recent"), q("dash_attention"), q("dash_state"),
-      // 라우팅표는 아직 안 만들었을 수 있다. 없다고 현황판 전체가 죽으면 안 된다.
-      qOpt("dash_templates"), qOpt("dash_form_templates")
+      // 아래 넷은 아직 안 만들었을 수 있다. 없다고 현황판 전체가 죽으면 안 된다.
+      qOpt("dash_templates"), qOpt("dash_form_templates"),
+      qOpt("dash_summary"), qOpt("dash_trend"), qOpt("dash_by_form_period")
     ]).then(function (r) {
-      renderTiles(r[0] && r[0][0]);
-      drawChart(r[1]);
-      renderForms(r[2], r[8]);
+      DATA.routes  = r[8] || [];
+      DATA.summary = r[9] || [];
+      DATA.trend   = r[10] || [];
+      DATA.forms   = r[11] || [];
+      DATA.legacy  = { today: r[0] && r[0][0], daily: r[1], byForm: r[2] };
+
+      // 기간 뷰가 없으면 기간 버튼을 숨기고 예전 화면 그대로 간다
+      document.getElementById("seg-row-wrap").hidden = !DATA.summary.length;
+
+      applyPeriod();
       renderTemplates(r[7]);
       renderSkips(r[3]);
       renderRecent(r[4]);
